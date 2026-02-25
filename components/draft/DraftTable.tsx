@@ -9,6 +9,7 @@ type DraftTableProps = {
   maxCells: number;
   phase: DraftPhase;
   duplicateColorMap: Record<string, string>;
+  cellWarnings: Record<string, Record<number, string>>;
   tableRef: React.RefObject<HTMLTableElement | null>;
   setCellValue: (block: string, cellIndex: number, value: string) => void;
   handleCellKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, block: string, cellIndex: number) => void;
@@ -16,7 +17,7 @@ type DraftTableProps = {
 };
 
 export default function DraftTable({
-  tableState, maxCells, phase, duplicateColorMap, tableRef,
+  tableState, maxCells, phase, duplicateColorMap, cellWarnings, tableRef,
   setCellValue, handleCellKeyDown, getRookieName,
 }: DraftTableProps) {
   return (
@@ -36,6 +37,7 @@ export default function DraftTable({
             {row.cells.map((cell, ci) => {
               const v = cell.value.trim();
               const dupColor = v ? duplicateColorMap[v] : undefined;
+              const warning = cellWarnings[row.block]?.[ci];
               const isConfirmed = cell.status === "confirmed";
               const isEditable = cell.status === "editable";
               const isSpan = cell.status === "span";
@@ -43,7 +45,7 @@ export default function DraftTable({
               return (
                 <td
                   key={ci}
-                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""}`}
+                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""} ${warning && !dupColor ? "cell-warning" : ""}`}
                   style={dupColor ? { backgroundColor: dupColor } : undefined}
                 >
                   {isEditable && phase !== "confirmed" ? (
@@ -56,6 +58,9 @@ export default function DraftTable({
                         onChange={(e) => setCellValue(row.block, ci, e.target.value)}
                         onKeyDown={(e) => handleCellKeyDown(e, row.block, ci)}
                       />
+                      {warning && !dupColor && (
+                        <div style={{ fontSize: 10, color: '#ef4444', marginTop: 1 }}>{warning}</div>
+                      )}
                       {(() => {
                         const name = getRookieName(cell.value.trim());
                         return name ? (

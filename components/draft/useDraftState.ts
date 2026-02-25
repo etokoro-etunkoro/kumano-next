@@ -128,6 +128,52 @@ export function useDraftState() {
     return combined;
   }, [allCategoryResults, totalGetDict]);
 
+  const cellWarnings = useMemo(() => {
+    const warnings: Record<string, Record<number, string>> = {};
+    const allConfirmedNums = new Set<string>();
+    for (const nums of Object.values(totalGetDict)) {
+      for (const n of nums) allConfirmedNums.add(String(n).trim());
+    }
+    const catRookies = rookies.filter(r => r.category === draftProgress.category);
+    const validIds = catRookies.length > 0 ? new Set(catRookies.map(r => r.id)) : null;
+
+    for (const row of tableState) {
+      const blockWarnings: Record<number, string> = {};
+      const seenInBlock = new Map<string, number>(); // value → first cellIndex
+
+      for (let ci = 0; ci < row.cells.length; ci++) {
+        const cell = row.cells[ci];
+        if (cell.status !== "editable") continue;
+        const v = cell.value.trim();
+        if (!v) continue;
+
+        // a) 同一ブロック内重複
+        if (seenInBlock.has(v)) {
+          blockWarnings[ci] = "ブロック内重複";
+          const firstIdx = seenInBlock.get(v)!;
+          if (!blockWarnings[firstIdx]) blockWarnings[firstIdx] = "ブロック内重複";
+        } else {
+          seenInBlock.set(v, ci);
+        }
+
+        // b) 確定済み番号の再指名
+        if (!blockWarnings[ci] && allConfirmedNums.has(v)) {
+          blockWarnings[ci] = "確定済み";
+        }
+
+        // c) 存在しない番号
+        if (!blockWarnings[ci] && validIds && !validIds.has(Number(v))) {
+          blockWarnings[ci] = "存在しない番号";
+        }
+      }
+
+      if (Object.keys(blockWarnings).length > 0) {
+        warnings[row.block] = blockWarnings;
+      }
+    }
+    return warnings;
+  }, [tableState, totalGetDict, rookies, draftProgress.category]);
+
   return {
     rookies, setRookies,
     draftProgress, setDraftProgress,
@@ -146,6 +192,6 @@ export function useDraftState() {
     saveBackup, restoreBackup, hasBackup,
     saveToLocalStorage, restoreFromLocalStorage, hasLocalStorageBackup,
     conflictInfo, duplicateColorMap, renominationDuplicates,
-    allConflictsResolved, combinedGetDict,
+    allConflictsResolved, combinedGetDict, cellWarnings,
   };
 }

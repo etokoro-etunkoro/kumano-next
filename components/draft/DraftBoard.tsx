@@ -91,6 +91,13 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       {/* 2カラムレイアウト */}
       <div className="two-column-layout">
         <div className="main-column">
+          {/* 再指名フェーズバナー */}
+          {s.renominationState && (
+            <div className="renomination-banner">
+              再指名フェーズ: {s.renominationState.pendingBlocks.join(', ')} は敗者です。空き枠に別の番号を入力してください。
+            </div>
+          )}
+
           {/* カテゴリタブ */}
           {s.tableState.length > 0 && (
             <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
@@ -128,6 +135,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
                 maxCells={maxCells}
                 phase={s.phase}
                 duplicateColorMap={s.duplicateColorMap}
+                cellWarnings={s.cellWarnings}
                 tableRef={s.tableRef}
                 setCellValue={a.setCellValue}
                 handleCellKeyDown={a.handleCellKeyDown}
