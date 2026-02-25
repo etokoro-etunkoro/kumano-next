@@ -21,16 +21,19 @@ type FinalResultModalProps = {
   isOpen: boolean;
   onClose: () => void;
   totalGetDict: Record<string, Array<string | number>>;
+  rookies: Array<{ id: number; name?: string }>;
 };
 
 export default function FinalResultModal({
   isOpen,
   onClose,
   totalGetDict,
+  rookies,
 }: FinalResultModalProps) {
   if (!isOpen) return null;
 
   const blocks = Object.keys(totalGetDict);
+  const nameMap = new Map(rookies.map((r) => [r.id, r.name]));
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -44,7 +47,10 @@ export default function FinalResultModal({
                 <span className="block-name">{block}</span>
                 {members.length > 0 ? (
                   <span className="block-members">
-                    {members.join(", ")}
+                    {members.map((m) => {
+                      const name = nameMap.get(Number(m));
+                      return name ? `${m} ${name}` : String(m);
+                    }).join(", ")}
                   </span>
                 ) : (
                   <span className="block-empty">なし</span>

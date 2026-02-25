@@ -1,4 +1,4 @@
-import DraftBoard from "@/components/draft_board2";
+import DraftBoard from "@/components/draft/DraftBoard";
 
 
 async function fetchInitial() {
