@@ -19,9 +19,9 @@ body {
 }
 
 .container {
-  max-width: 860px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 28px 16px 60px;
+  padding: 28px 24px 60px;
   overflow-x: auto;
 }
 
@@ -33,7 +33,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 16px;
+  padding: 20px;
   backdrop-filter: blur(10px);
 }
 
@@ -97,27 +97,27 @@ a:hover { text-decoration: underline; }
 }
 
 .slots-table th {
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: #f3f4f6;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
   border-bottom: 2px solid #d1d5db;
 }
 
 .slots-table td {
-  padding: 6px 10px;
+  padding: 8px 12px;
   text-align: center;
 }
 
 .cell-black {
   border: 2px solid black;
-  width: 50px;
+  width: 90px;
 }
 
 .cell-red {
   border: 2px solid red;
-  width: 50px;
+  width: 90px;
 }
 
 .cell-input {
@@ -126,6 +126,7 @@ a:hover { text-decoration: underline; }
   outline: none;
   text-align: center;
   background: transparent;
+  font-size: 14px;
 }
 
 .cell-input:focus {
@@ -203,9 +204,9 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 16px;
+  padding: 20px;
   backdrop-filter: blur(10px);
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 .remaining-header {
@@ -415,4 +416,42 @@ a:hover { text-decoration: underline; }
   text-align: right;
   font-size: 13px;
   color: #6b7280;
+}
+
+/* ===================================
+   2カラムレイアウト
+   =================================== */
+
+.two-column-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.main-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.side-column {
+  width: 340px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .two-column-layout {
+    flex-direction: column;
+  }
+  .side-column {
+    width: 100%;
+    position: static;
+    max-height: none;
+  }
 }

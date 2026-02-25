@@ -6,9 +6,10 @@ import { RookieCategory } from "@/types/rookie";
 type RemainingRookiesProps = {
   rookies: Array<{ id: number; name?: string; category: RookieCategory }>;
   getDict: Record<string, Array<string | number>>;
+  category?: RookieCategory;
 };
 
-export default function RemainingRookies({ rookies, getDict }: RemainingRookiesProps) {
+export default function RemainingRookies({ rookies, getDict, category }: RemainingRookiesProps) {
   const [filter, setFilter] = useState<"all" | "remaining" | "selected">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -22,7 +23,12 @@ export default function RemainingRookies({ rookies, getDict }: RemainingRookiesP
     }
   }
 
-  const filtered = rookies.filter((rookie) => {
+  // Category filter: if category prop is provided, show only that category
+  const categoryFiltered = category
+    ? rookies.filter((r) => r.category === category)
+    : rookies;
+
+  const filtered = categoryFiltered.filter((rookie) => {
     const isSelected = selectedIds.has(String(rookie.id));
     if (filter === "remaining" && isSelected) return false;
     if (filter === "selected" && !isSelected) return false;
@@ -35,8 +41,8 @@ export default function RemainingRookies({ rookies, getDict }: RemainingRookiesP
     return true;
   });
 
-  const totalCount = rookies.length;
-  const selectedCount = rookies.filter((r) => selectedIds.has(String(r.id))).length;
+  const totalCount = categoryFiltered.length;
+  const selectedCount = categoryFiltered.filter((r) => selectedIds.has(String(r.id))).length;
   const remainingCount = totalCount - selectedCount;
 
   return (

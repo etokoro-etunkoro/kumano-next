@@ -1,11 +1,11 @@
 {
-  "A1": { "freshman": [2, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "A2": { "freshman": [3, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "A3": { "freshman": [4, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "A4": { "freshman": [5, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "B12": { "freshman": [6, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "B3": { "freshman": [1, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "B4": { "freshman": [2, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "C12": { "freshman": [3, 2], "upperclassman": [0, 0], "temporary": [0, 0] },
-  "C34": { "freshman": [3, 2], "upperclassman": [0, 0], "temporary": [0, 0] }
+  "A1": { "freshman": [2, 2], "upperclassman": [1, 1], "temporary": [1, 1] },
+  "A2": { "freshman": [3, 2], "upperclassman": [1, 1], "temporary": [1, 0] },
+  "A3": { "freshman": [4, 2], "upperclassman": [1, 1], "temporary": [1, 1] },
+  "A4": { "freshman": [5, 2], "upperclassman": [2, 1], "temporary": [1, 0] },
+  "B12": { "freshman": [6, 2], "upperclassman": [2, 2], "temporary": [1, 1] },
+  "B3": { "freshman": [1, 2], "upperclassman": [1, 0], "temporary": [1, 0] },
+  "B4": { "freshman": [2, 2], "upperclassman": [1, 1], "temporary": [1, 0] },
+  "C12": { "freshman": [3, 2], "upperclassman": [1, 1], "temporary": [1, 0] },
+  "C34": { "freshman": [3, 2], "upperclassman": [1, 1], "temporary": [1, 0] }
 }

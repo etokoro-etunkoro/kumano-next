@@ -120,14 +120,15 @@ export default function DraftStatusBar({
           align-items: center;
           flex-wrap: wrap;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 14px 20px;
           background: var(--panel);
           border: 1px solid var(--border);
           border-radius: var(--radius);
-          margin-bottom: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          margin-bottom: 16px;
         }
         .status-text {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
         }
         .actions {
@@ -145,8 +146,9 @@ export default function DraftStatusBar({
             rgba(120, 170, 255, 0.18)
           );
           color: var(--text);
-          padding: 9px 12px;
+          padding: 10px 20px;
           border-radius: 12px;
+          font-size: 14px;
           font-weight: 600;
         }
         .action-btn:hover:not(:disabled) {
@@ -161,8 +163,9 @@ export default function DraftStatusBar({
           border: 1px solid var(--border);
           background: var(--panel2);
           color: var(--text);
-          padding: 9px 12px;
+          padding: 10px 16px;
           border-radius: 12px;
+          font-size: 13px;
         }
         .util-btn:hover:not(:disabled) {
           filter: brightness(1.08);

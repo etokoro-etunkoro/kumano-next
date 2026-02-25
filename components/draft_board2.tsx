@@ -24,8 +24,8 @@ import {
   rebuildTableFromGetDict,
   applyRoundSlots,
 } from "@/utils/draftTableUtils";
+import { parseBlockSlotsCsv } from "@/utils/csvParser";
 
-import NumberPicker from "./NumberPicker";
 import DraftLog, { type LogEntry } from "./DraftLog";
 import DraftStatusBar from "./DraftStatusBar";
 import CsvImporter from "./CsvImporter";
@@ -85,6 +85,9 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
   const [tableState, setTableState] = useState<Row[]>([]);
   const [phase, setPhase] = useState<DraftPhase>("picking");
   const [totalGetDict, setTotalGetDict] = useState<Record<string, Array<string | number>>>({});
+  const [allCategoryResults, setAllCategoryResults] = useState<
+    Record<string, Record<string, Array<string | number>>>
+  >({});
   const [activeBlockSlots, setActiveBlockSlots] = useState<BlockSlotsConfig>({});
 
   const [showConflictResolve, setShowConflictResolve] = useState(false);
@@ -92,9 +95,6 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
   const [renominationInput, setRenominationInput] = useState<RenominationInput>({});
 
   const [showFinalResult, setShowFinalResult] = useState(false);
-  const [pickerAnchor, setPickerAnchor] = useState<{ top: number; left: number; bottom: number } | null>(null);
-  const [pickerNumbers, setPickerNumbers] = useState<number[]>([]);
-  const [pickerTarget, setPickerTarget] = useState<{ block: string; cellIndex: number } | null>(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [focusedCell, setFocusedCell] = useState<{ block: string; cellIndex: number } | null>(null);
 
@@ -111,23 +111,6 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
   } = useDraftBackup();
 
   // ═══════════ 3. useMemo群 ═══════════
-
-  // 有効な番号セット（現在のカテゴリのrookies）
-  const validNumbers = useMemo(() => {
-    const cat = draftProgress.category;
-    return new Set(
-      rookies.filter((r) => r.category === cat).map((r) => String(r.id))
-    );
-  }, [rookies, draftProgress.category]);
-
-  // 確定済み番号セット
-  const confirmedNumbers = useMemo(() => {
-    const set = new Set<string>();
-    for (const vals of Object.values(totalGetDict)) {
-      for (const v of vals) set.add(String(v));
-    }
-    return set;
-  }, [totalGetDict]);
 
   // 競合情報（重複指名を検出）
   const conflictInfo = useMemo(() => {
@@ -195,6 +178,32 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
     return phase !== "janken";
   }, [phase]);
 
+  // 全カテゴリの結果を統合（FinalResultModal用）
+  const combinedGetDict = useMemo(() => {
+    const combined: Record<string, Array<string | number>> = {};
+    // 過去カテゴリの結果
+    for (const catResult of Object.values(allCategoryResults)) {
+      for (const [block, nums] of Object.entries(catResult)) {
+        if (!combined[block]) combined[block] = [];
+        for (const n of nums) {
+          if (!combined[block].includes(n)) combined[block].push(n);
+        }
+      }
+    }
+    // 現在カテゴリの結果
+    for (const [block, nums] of Object.entries(totalGetDict)) {
+      if (!combined[block]) combined[block] = [];
+      for (const n of nums) {
+        if (!combined[block].includes(n)) combined[block].push(n);
+      }
+    }
+    // ソート
+    for (const block of Object.keys(combined)) {
+      combined[block].sort((a, b) => Number(a) - Number(b));
+    }
+    return combined;
+  }, [allCategoryResults, totalGetDict]);
+
   // ═══════════ 4. useCallback群 ═══════════
 
   const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
@@ -242,8 +251,10 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
 
   const handleRookiesImport = useCallback(
     (imported: Rookie[]) => {
-      setRookies(imported);
-      addLog(`新入寮生 ${imported.length}名を読み込みました`, "info");
+      if (imported.length === 0) return;
+      const cat = imported[0].category;
+      setRookies((prev) => [...prev.filter((r) => r.category !== cat), ...imported]);
+      addLog(`${imported.length}名を読み込みました（${cat}）`, "info");
     },
     [addLog]
   );
@@ -276,7 +287,119 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
     []
   );
 
+  const getRookieName = useCallback(
+    (num: string): string | null => {
+      const n = parseInt(num, 10);
+      if (isNaN(n)) return null;
+      const r = rookies.find(
+        (rk) => rk.id === n && rk.category === draftProgress.category
+      );
+      return r?.name || null;
+    },
+    [rookies, draftProgress.category]
+  );
+
+  const handleCategoryTabClick = useCallback(
+    (targetCat: RookieCategory) => {
+      if (targetCat === draftProgress.category) return;
+
+      // 現在のカテゴリ結果を保存
+      if (Object.keys(totalGetDict).length > 0) {
+        setAllCategoryResults((prev) => ({
+          ...prev,
+          [draftProgress.category]: totalGetDict,
+        }));
+      }
+
+      // ターゲットカテゴリに結果があれば復元
+      const saved = allCategoryResults[targetCat];
+      if (saved) {
+        setTotalGetDict(saved);
+        const restored = rebuildTableFromGetDict(
+          buildTable(activeBlockSlots, targetCat, 1),
+          saved
+        );
+        setTableState(restored);
+        setPhase("confirmed");
+      } else {
+        // 未着手カテゴリ
+        setTotalGetDict({});
+        const table = buildTable(activeBlockSlots, targetCat, 1);
+        setTableState(table);
+        setPhase("picking");
+      }
+
+      setDraftProgress((prev) => ({ ...prev, category: targetCat }));
+      setRenominationState(null);
+    },
+    [
+      draftProgress.category,
+      totalGetDict,
+      allCategoryResults,
+      activeBlockSlots,
+      buildTable,
+    ]
+  );
+
   const handleConfirmNominations = useCallback(() => {
+    // ── BUG-1: 確定済み番号の再指名防止 ──
+    const allConfirmedNums = new Set<string>();
+    for (const nums of Object.values(totalGetDict)) {
+      for (const n of nums) {
+        allConfirmedNums.add(String(n).trim());
+      }
+    }
+    for (const row of tableState) {
+      for (const cell of row.cells) {
+        if (cell.status !== "editable") continue;
+        const v = cell.value.trim();
+        if (!v) continue;
+        if (allConfirmedNums.has(v)) {
+          alert(`No.${v} は既に確定済みです。別の番号を指名してください。`);
+          return;
+        }
+      }
+    }
+
+    // ── BUG-2: 同一ブロック内の重複指名防止 ──
+    for (const row of tableState) {
+      const seen = new Set<string>();
+      for (const cell of row.cells) {
+        if (cell.status !== "editable") continue;
+        const v = cell.value.trim();
+        if (!v) continue;
+        if (seen.has(v)) {
+          alert(
+            `${row.block} で No.${v} が重複しています。同一ブロック内で同じ番号は指名できません。`
+          );
+          return;
+        }
+        seen.add(v);
+      }
+    }
+
+    // ── BUG-4: 存在しない番号の指名防止 ──
+    const catRookies = rookies.filter(
+      (r) => r.category === draftProgress.category
+    );
+    if (catRookies.length > 0) {
+      const validIds = new Set(catRookies.map((r) => r.id));
+      for (const row of tableState) {
+        for (const cell of row.cells) {
+          if (cell.status !== "editable") continue;
+          const v = cell.value.trim();
+          if (!v) continue;
+          const num = Number(v);
+          if (!validIds.has(num)) {
+            alert(
+              `No.${v} は現在のカテゴリに存在しません。正しい番号を入力してください。`
+            );
+            return;
+          }
+        }
+      }
+    }
+
     const roundData = exportToJSON(tableState);
     apiPost("/submit", { round_data: roundData });
 
@@ -297,7 +420,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       setDraftProgress((prev) => ({ ...prev, phase: "confirmed" }));
       addLog("指名を確定しました", "info");
     }
-  }, [tableState, conflictInfo, exportToJSON, addLog]);
+  }, [tableState, conflictInfo, exportToJSON, addLog, rookies, draftProgress.category, totalGetDict]);
 
   const handleConflictResolve = useCallback(
     (winnersMap: Record<string, string>) => {
@@ -305,7 +428,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
 
       // サーバーに同期
       for (const [rookieNumber, winner] of Object.entries(winnersMap)) {
-        apiPost("/resolve_conflict", { rookie_number: rookieNumber, winner });
+        apiPost("/resolve_conflict", { val: rookieNumber, winner });
         addLog(`No.${rookieNumber} の勝者: ${winner}`, "winner");
       }
 
@@ -421,8 +544,9 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       const nextCat = getNextCategory(draftProgress.category);
       if (!nextCat) {
         setShowFinalResult(true);
-        return;
       }
+      // maxRound超過: 次カテゴリボタンで遷移させる
+      return;
     }
 
     apiPost("/next_round", { round: nextRound });
@@ -457,6 +581,14 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       return;
     }
 
+    // 現カテゴリの結果を保存してからリセット
+    if (Object.keys(totalGetDict).length > 0) {
+      setAllCategoryResults((prev) => ({
+        ...prev,
+        [draftProgress.category]: totalGetDict,
+      }));
+    }
+
     apiPost("/next_category", { category: nextCat });
 
     const table = buildTable(activeBlockSlots, nextCat, 1);
@@ -472,7 +604,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
     setTotalGetDict({});
     setRenominationState(null);
     addLog(`${CATEGORY_LABELS[nextCat]}ドラフトを開始`, "info");
-  }, [draftProgress, activeBlockSlots, buildTable, addLog]);
+  }, [draftProgress, activeBlockSlots, buildTable, addLog, totalGetDict]);
 
   const handleSaveState = useCallback(() => {
     const backup: DraftBackup = {
@@ -510,22 +642,6 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
     setPhase((backup.draftProgress.phase as DraftPhase) || "picking");
     addLog("状態を復元しました", "info");
   }, [restoreBackup, restoreFromLocalStorage, addLog]);
-
-  const handlePickerSelect = useCallback(
-    (num: number) => {
-      if (pickerTarget) {
-        setCellValue(pickerTarget.block, pickerTarget.cellIndex, String(num));
-      }
-      setPickerAnchor(null);
-      setPickerTarget(null);
-    },
-    [pickerTarget, setCellValue]
-  );
-
-  const handlePickerClose = useCallback(() => {
-    setPickerAnchor(null);
-    setPickerTarget(null);
-  }, []);
 
   const handleCellKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>, block: string, cellIndex: number) => {
@@ -617,47 +733,46 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
 
   const handleQuickSet = useCallback(async () => {
     try {
-      // rookies CSV
-      const rookiesRes = await fetch("/devdata/rookies.csv");
-      const rookiesText = (await rookiesRes.text()).replace(/^\uFEFF/, "");
-      const importedRookies: Rookie[] = [];
-      for (const line of rookiesText.split("\n")) {
-        const parts = line.trim().split(",");
-        const num = parseInt(parts[0], 10);
-        if (isNaN(num)) continue;
-        importedRookies.push({
-          id: num,
-          name: parts[1]?.trim() || "",
-          category: "freshman" as const,
-          remaining: true,
-        });
+      // rookies CSV — 3カテゴリ読み込み
+      const csvFiles: Array<{ file: string; category: RookieCategory }> = [
+        { file: "/devdata/rookies.csv", category: "freshman" },
+        { file: "/devdata/rookies_upperclassman.csv", category: "upperclassman" },
+        { file: "/devdata/rookies_temporary.csv", category: "temporary" },
+      ];
+      const allRookies: Rookie[] = [];
+      for (const { file, category } of csvFiles) {
+        try {
+          const res = await fetch(file);
+          if (!res.ok) continue;
+          const text = (await res.text()).replace(/^\uFEFF/, "");
+          for (const line of text.split("\n")) {
+            const parts = line.trim().split(",");
+            const num = parseInt(parts[0], 10);
+            if (isNaN(num)) continue;
+            allRookies.push({
+              id: num,
+              name: parts[1]?.trim() || "",
+              category,
+              remaining: true,
+            });
+          }
+        } catch {
+          // ファイルが存在しない場合は無視
+        }
       }
-      setRookies(importedRookies);
+      setRookies(allRookies);
 
       // block_slots CSV
       const slotsRes = await fetch("/devdata/block_slots.csv");
       const slotsText = (await slotsRes.text()).replace(/^\uFEFF/, "");
-      const config: BlockSlotsConfig = {};
-      let maxRound = 0;
-      for (const line of slotsText.split("\n")) {
-        const parts = line.trim().split(",");
-        const blockName = parts[0];
-        if (!blockName || isNaN(parseInt(parts[1], 10))) continue;
-        const slots = parts.slice(2).map(Number);
-        config[blockName] = {
-          freshman: slots,
-          upperclassman: slots.map(() => 0),
-          temporary: slots.map(() => 0),
-        };
-        maxRound = Math.max(maxRound, slots.length);
-      }
+      const { config, maxRound } = parseBlockSlotsCsv(slotsText);
 
       setActiveBlockSlots(config);
       const progress: DraftProgress = { ...draftProgress, maxRound };
       setDraftProgress(progress);
       const table = buildTable(config, progress.category, progress.round);
       setTableState(table);
-      addLog("デフォルトデータをセットしました", "info");
+      addLog(`デフォルトデータをセットしました（${allRookies.length}名）`, "info");
     } catch (err) {
       console.error("Quick set failed:", err);
       addLog("データセット失敗", "error");
@@ -691,7 +806,8 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       <p className="sub">新入寮生の部屋割りドラフトシステム</p>
 
       {/* CSV インポート */}
-      <div className="card" style={{ marginBottom: 12 }}>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 8px' }}>データ読込</h3>
         {process.env.NODE_ENV === "development" && (
           <button
             type="button"
@@ -715,6 +831,16 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
         />
       </div>
 
+      {/* 操作ガイド（データ未読込時のみ） */}
+      {tableState.length === 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 8px', color: 'var(--text)' }}>操作手順</h3>
+          <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
+            ① CSVまたはクイックセットでデータを読み込む → ② 各ブロックの枠に番号を入力 → ③ 指名終了ボタンで確定
+          </p>
+        </div>
+      )}
+
       {/* ステータスバー */}
       <DraftStatusBar
         progress={draftProgress}
@@ -730,112 +856,157 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
         isLocked={isComplete || showFinalResult}
       />
 
-      {/* テーブル */}
-      {tableState.length > 0 && (
-        <div className="card" style={{ overflowX: "auto" }}>
-          <table className="slots-table" ref={tableRef}>
-            <thead>
-              <tr>
-                <th>ブロック</th>
-                {Array.from({ length: maxCells }, (_, i) => (
-                  <th key={i}>枠{i + 1}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tableState.map((row) => (
-                <tr key={row.block}>
-                  <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{row.block}</td>
-                  {row.cells.map((cell, ci) => {
-                    const v = cell.value.trim();
-                    const dupColor = v ? duplicateColorMap[v] : undefined;
-                    const isConfirmed = cell.status === "confirmed";
-                    const isEditable = cell.status === "editable";
-                    const isSpan = cell.status === "span";
-
-                    return (
-                      <td
-                        key={ci}
-                        className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""}`}
-                        style={dupColor ? { backgroundColor: dupColor } : undefined}
-                      >
-                        {isEditable ? (
-                          <input
-                            className="cell-input"
-                            data-block={row.block}
-                            data-cell={ci}
-                            value={cell.value}
-                            onChange={(e) => setCellValue(row.block, ci, e.target.value)}
-                            onKeyDown={(e) => handleCellKeyDown(e, row.block, ci)}
-                            onClick={(e) => {
-                              const rect = (e.target as HTMLElement).getBoundingClientRect();
-                              const usedNumbers = new Set<string>();
-                              tableState.forEach((r) =>
-                                r.cells.forEach((c) => {
-                                  if (c.value.trim()) usedNumbers.add(c.value.trim());
-                                })
-                              );
-                              const available = Array.from(validNumbers)
-                                .filter((n) => !usedNumbers.has(n) && !confirmedNumbers.has(n))
-                                .map(Number)
-                                .filter((n) => !isNaN(n))
-                                .sort((a, b) => a - b);
-                              setPickerAnchor({
-                                top: rect.top,
-                                left: rect.left,
-                                bottom: rect.bottom,
-                              });
-                              setPickerNumbers(available);
-                              setPickerTarget({ block: row.block, cellIndex: ci });
-                            }}
-                          />
-                        ) : isConfirmed ? (
-                          <span>{cell.value}</span>
-                        ) : (
-                          <span>&nbsp;</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  {/* パディング列 */}
-                  {row.cells.length < maxCells &&
-                    Array.from({ length: maxCells - row.cells.length }, (_, i) => (
-                      <td key={`pad-${i}`}>&nbsp;</td>
-                    ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* 競合サマリー */}
-      {conflictInfo.length > 0 && phase !== "confirmed" && (
-        <div className="conflict-summary">
-          <p className="conflict-title">重複指名あり</p>
-          <ul className="conflict-list">
-            {conflictInfo.map((c) => (
-              <li key={c.value} className="conflict-item">
-                <span
-                  className="conflict-number"
-                  style={{ backgroundColor: duplicateColorMap[c.value] }}
+      {/* 2カラムレイアウト */}
+      <div className="two-column-layout">
+        <div className="main-column">
+          {/* UI-1: カテゴリタブ */}
+          {tableState.length > 0 && (
+            <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+              {CATEGORY_ORDER.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => handleCategoryTabClick(cat)}
+                  style={{
+                    padding: "8px 20px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontWeight: cat === draftProgress.category ? 700 : 400,
+                    background:
+                      cat === draftProgress.category
+                        ? "rgba(120,170,255,0.25)"
+                        : "var(--panel2)",
+                    color: "var(--text)",
+                    fontSize: 14,
+                  }}
                 >
-                  No.{c.value}
-                </span>
-                <span className="conflict-blocks">{c.blocks.join(" vs ")}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+                  {CATEGORY_LABELS[cat]}
+                </button>
+              ))}
+            </div>
+          )}
 
-      {/* ナンバーピッカー */}
-      <NumberPicker
-        availableNumbers={pickerNumbers}
-        onSelect={handlePickerSelect}
-        onClose={handlePickerClose}
-        anchorRect={pickerAnchor}
-      />
+          {/* テーブル */}
+          {tableState.length > 0 && (
+            <div className="card" style={{ overflowX: "auto", marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 8px' }}>指名テーブル</h3>
+              <table className="slots-table" ref={tableRef}>
+                <thead>
+                  <tr>
+                    <th>ブロック</th>
+                    {Array.from({ length: maxCells }, (_, i) => (
+                      <th key={i}>枠{i + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableState.map((row) => (
+                    <tr key={row.block}>
+                      <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{row.block}</td>
+                      {row.cells.map((cell, ci) => {
+                        const v = cell.value.trim();
+                        const dupColor = v ? duplicateColorMap[v] : undefined;
+                        const isConfirmed = cell.status === "confirmed";
+                        const isEditable = cell.status === "editable";
+                        const isSpan = cell.status === "span";
+
+                        return (
+                          <td
+                            key={ci}
+                            className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""}`}
+                            style={dupColor ? { backgroundColor: dupColor } : undefined}
+                          >
+                            {isEditable && phase !== "confirmed" ? (
+                              <div>
+                                <input
+                                  className="cell-input"
+                                  data-block={row.block}
+                                  data-cell={ci}
+                                  value={cell.value}
+                                  onChange={(e) => setCellValue(row.block, ci, e.target.value)}
+                                  onKeyDown={(e) => handleCellKeyDown(e, row.block, ci)}
+                                />
+                                {(() => {
+                                  const name = getRookieName(cell.value.trim());
+                                  return name ? (
+                                    <div style={{ fontSize: 11, color: "#666", marginTop: 1 }}>
+                                      {name}
+                                    </div>
+                                  ) : null;
+                                })()}
+                              </div>
+                            ) : isEditable && phase === "confirmed" ? (
+                              <span>
+                                {cell.value.trim()
+                                  ? `${cell.value.trim()}${(() => {
+                                      const name = getRookieName(cell.value.trim());
+                                      return name ? ` ${name}` : "";
+                                    })()}`
+                                  : ""}
+                              </span>
+                            ) : isConfirmed ? (
+                              <span>
+                                {cell.value.trim()
+                                  ? `${cell.value.trim()}${(() => {
+                                      const name = getRookieName(cell.value.trim());
+                                      return name ? ` ${name}` : "";
+                                    })()}`
+                                  : cell.value}
+                              </span>
+                            ) : (
+                              <span>&nbsp;</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      {/* パディング列 */}
+                      {row.cells.length < maxCells &&
+                        Array.from({ length: maxCells - row.cells.length }, (_, i) => (
+                          <td key={`pad-${i}`}>&nbsp;</td>
+                        ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 競合サマリー */}
+          {conflictInfo.length > 0 && phase !== "confirmed" && (
+            <div className="conflict-summary">
+              <p className="conflict-title">重複指名あり</p>
+              <ul className="conflict-list">
+                {conflictInfo.map((c) => (
+                  <li key={c.value} className="conflict-item">
+                    <span
+                      className="conflict-number"
+                      style={{ backgroundColor: duplicateColorMap[c.value] }}
+                    >
+                      No.{c.value}
+                    </span>
+                    <span className="conflict-blocks">{c.blocks.join(" vs ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="side-column">
+          {/* 残り新入寮生一覧 */}
+          {rookies.length > 0 && (
+            <RemainingRookies
+              rookies={rookies.map((r) => ({ id: r.id, name: r.name, category: r.category }))}
+              getDict={totalGetDict}
+              category={draftProgress.category}
+            />
+          )}
+
+          {/* ドラフトログ */}
+          <DraftLog entries={logEntries} />
+        </div>
+      </div>
 
       {/* 競合解決モーダル */}
       {showConflictResolve && (
@@ -854,19 +1025,8 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
       <FinalResultModal
         isOpen={showFinalResult}
         onClose={() => setShowFinalResult(false)}
-        totalGetDict={totalGetDict}
+        totalGetDict={combinedGetDict}
       />
-
-      {/* 残り新入寮生一覧 */}
-      {rookies.length > 0 && (
-        <RemainingRookies
-          rookies={rookies.map((r) => ({ id: r.id, name: r.name, category: r.category }))}
-          getDict={totalGetDict}
-        />
-      )}
-
-      {/* ドラフトログ */}
-      <DraftLog entries={logEntries} />
     </div>
   );
 }
