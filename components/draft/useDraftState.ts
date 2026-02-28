@@ -28,6 +28,10 @@ export function useDraftState() {
   const [renominationState, setRenominationState] = useState<RenominationState>(null);
   const [renominationInput, setRenominationInput] = useState<RenominationInput>({});
 
+  const [categoryProgressMap, setCategoryProgressMap] = useState<
+    Record<string, { round: number; phase: DraftPhase }>
+  >({});
+
   const [showFinalResult, setShowFinalResult] = useState(false);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [focusedCell, setFocusedCell] = useState<{ block: string; cellIndex: number } | null>(null);
@@ -73,12 +77,19 @@ export function useDraftState() {
 
   const renominationDuplicates = useMemo(() => {
     if (!renominationState) return [];
+
+    const allConfirmedNums = new Set<string>();
+    for (const nums of Object.values(totalGetDict)) {
+      for (const n of nums) allConfirmedNums.add(String(n).trim());
+    }
+
     const valueToBlocks: Record<string, string[]> = {};
 
     for (const row of tableState) {
       for (const cell of row.cells) {
         const v = cell.value.trim();
         if (!v || cell.status !== "editable") continue;
+        if (allConfirmedNums.has(v)) continue;
         if (!valueToBlocks[v]) valueToBlocks[v] = [];
         if (!valueToBlocks[v].includes(row.block)) {
           valueToBlocks[v].push(row.block);
@@ -90,6 +101,7 @@ export function useDraftState() {
       for (const v of values) {
         const trimmed = v.trim();
         if (!trimmed) continue;
+        if (allConfirmedNums.has(trimmed)) continue;
         if (!valueToBlocks[trimmed]) valueToBlocks[trimmed] = [];
         if (!valueToBlocks[trimmed].includes(block)) {
           valueToBlocks[trimmed].push(block);
@@ -100,7 +112,7 @@ export function useDraftState() {
     return Object.entries(valueToBlocks)
       .filter(([, blocks]) => blocks.length > 1)
       .map(([value, blocks]) => ({ value, blocks }));
-  }, [tableState, renominationState, renominationInput]);
+  }, [tableState, renominationState, renominationInput, totalGetDict]);
 
   const allConflictsResolved = useMemo(() => {
     return phase !== "janken";
@@ -129,7 +141,7 @@ export function useDraftState() {
   }, [allCategoryResults, totalGetDict]);
 
   const cellWarnings = useMemo(() => {
-    const warnings: Record<string, Record<number, string>> = {};
+    const warnings: Record<string, Record<number | string, string>> = {};
     const allConfirmedNums = new Set<string>();
     for (const nums of Object.values(totalGetDict)) {
       for (const n of nums) allConfirmedNums.add(String(n).trim());
@@ -138,7 +150,7 @@ export function useDraftState() {
     const validIds = catRookies.length > 0 ? new Set(catRookies.map(r => r.id)) : null;
 
     for (const row of tableState) {
-      const blockWarnings: Record<number, string> = {};
+      const blockWarnings: Record<number | string, string> = {};
       const seenInBlock = new Map<string, number>(); // value → first cellIndex
 
       for (let ci = 0; ci < row.cells.length; ci++) {
@@ -171,8 +183,28 @@ export function useDraftState() {
         warnings[row.block] = blockWarnings;
       }
     }
+
+    // 再指名フェーズの入力にも警告を出す
+    if (renominationState) {
+      for (const [block, values] of Object.entries(renominationInput)) {
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i].trim();
+          if (!v) continue;
+          const key = `renomination_${block}_${i}`;
+
+          if (allConfirmedNums.has(v)) {
+            if (!warnings[block]) warnings[block] = {};
+            warnings[block][key] = "確定済み";
+          } else if (validIds && !validIds.has(Number(v))) {
+            if (!warnings[block]) warnings[block] = {};
+            warnings[block][key] = "存在しない番号";
+          }
+        }
+      }
+    }
+
     return warnings;
-  }, [tableState, totalGetDict, rookies, draftProgress.category]);
+  }, [tableState, totalGetDict, rookies, draftProgress.category, renominationState, renominationInput]);
 
   return {
     rookies, setRookies,
@@ -185,6 +217,7 @@ export function useDraftState() {
     showConflictResolve, setShowConflictResolve,
     renominationState, setRenominationState,
     renominationInput, setRenominationInput,
+    categoryProgressMap, setCategoryProgressMap,
     showFinalResult, setShowFinalResult,
     logEntries, setLogEntries,
     focusedCell, setFocusedCell,

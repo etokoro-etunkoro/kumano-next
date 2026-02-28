@@ -124,6 +124,15 @@ export function useDraftActions(s: DraftState) {
     (targetCat: RookieCategory) => {
       if (targetCat === s.draftProgress.category) return;
 
+      // 現在のカテゴリの round/phase を保存
+      s.setCategoryProgressMap((prev) => ({
+        ...prev,
+        [s.draftProgress.category]: {
+          round: s.draftProgress.round,
+          phase: s.phase,
+        },
+      }));
+
       if (Object.keys(s.totalGetDict).length > 0) {
         s.setAllCategoryResults((prev) => ({
           ...prev,
@@ -131,30 +140,41 @@ export function useDraftActions(s: DraftState) {
         }));
       }
 
+      // 切り替え先カテゴリの round/phase を復元
+      const savedProgress = s.categoryProgressMap[targetCat];
+      const restoredRound = savedProgress?.round ?? 1;
+      const restoredPhase = savedProgress?.phase ?? "picking";
+
       const saved = s.allCategoryResults[targetCat];
       if (saved) {
         s.setTotalGetDict(saved);
         const restored = rebuildTableFromGetDict(
-          buildTable(s.activeBlockSlots, targetCat, 1),
+          buildTable(s.activeBlockSlots, targetCat, restoredRound),
           saved
         );
         s.setTableState(restored);
-        s.setPhase("confirmed");
+        s.setPhase(restoredPhase);
       } else {
         s.setTotalGetDict({});
-        const table = buildTable(s.activeBlockSlots, targetCat, 1);
+        const table = buildTable(s.activeBlockSlots, targetCat, restoredRound);
         s.setTableState(table);
-        s.setPhase("picking");
+        s.setPhase(restoredPhase);
       }
 
-      s.setDraftProgress((prev) => ({ ...prev, category: targetCat }));
+      s.setDraftProgress((prev) => ({
+        ...prev,
+        category: targetCat,
+        round: restoredRound,
+        phase: restoredPhase,
+      }));
       s.setRenominationState(null);
     },
     [
-      s.draftProgress.category, s.totalGetDict, s.allCategoryResults,
+      s.draftProgress.category, s.draftProgress.round, s.phase,
+      s.totalGetDict, s.allCategoryResults, s.categoryProgressMap,
       s.activeBlockSlots, buildTable,
-      s.setAllCategoryResults, s.setTotalGetDict, s.setTableState,
-      s.setPhase, s.setDraftProgress, s.setRenominationState,
+      s.setCategoryProgressMap, s.setAllCategoryResults, s.setTotalGetDict,
+      s.setTableState, s.setPhase, s.setDraftProgress, s.setRenominationState,
     ]
   );
 
@@ -324,6 +344,70 @@ export function useDraftActions(s: DraftState) {
   }, [s.setShowConflictResolve, s.setPhase]);
 
   const handleConfirmRenomination = useCallback(() => {
+    // バリデーション: 確定済み番号チェック
+    const allConfirmedNums = new Set<string>();
+    for (const nums of Object.values(s.totalGetDict)) {
+      for (const n of nums) allConfirmedNums.add(String(n).trim());
+    }
+
+    // renominationInput の確定済み番号チェック
+    for (const [block, values] of Object.entries(s.renominationInput)) {
+      for (const v of values) {
+        const trimmed = v.trim();
+        if (!trimmed) continue;
+        if (allConfirmedNums.has(trimmed)) {
+          alert(`No.${trimmed} は既に確定済みです（${block}）。別の番号を指名してください。`);
+          return;
+        }
+      }
+    }
+
+    // tableState の editable セルの確定済み番号チェック
+    for (const row of s.tableState) {
+      for (const cell of row.cells) {
+        if (cell.status !== "editable") continue;
+        const v = cell.value.trim();
+        if (!v) continue;
+        if (allConfirmedNums.has(v)) {
+          alert(`No.${v} は既に確定済みです（${row.block}）。別の番号を指名してください。`);
+          return;
+        }
+      }
+    }
+
+    // 同一ブロック内重複チェック（renominationInput）
+    for (const [block, values] of Object.entries(s.renominationInput)) {
+      const seen = new Set<string>();
+      for (const v of values) {
+        const trimmed = v.trim();
+        if (!trimmed) continue;
+        if (seen.has(trimmed)) {
+          alert(`${block} で No.${trimmed} が重複しています。同一ブロック内で同じ番号は指名できません。`);
+          return;
+        }
+        seen.add(trimmed);
+      }
+    }
+
+    // 存在しない番号チェック
+    const catRookies = s.rookies.filter(
+      (r) => r.category === s.draftProgress.category
+    );
+    if (catRookies.length > 0) {
+      const validIds = new Set(catRookies.map((r) => r.id));
+      for (const [block, values] of Object.entries(s.renominationInput)) {
+        for (const v of values) {
+          const trimmed = v.trim();
+          if (!trimmed) continue;
+          const num = Number(trimmed);
+          if (!validIds.has(num)) {
+            alert(`No.${trimmed} は現在のカテゴリに存在しません（${block}）。正しい番号を入力してください。`);
+            return;
+          }
+        }
+      }
+    }
+
     if (s.renominationDuplicates.length > 0) {
       s.setPhase("janken");
       s.setShowConflictResolve(true);
@@ -342,7 +426,8 @@ export function useDraftActions(s: DraftState) {
       addLog("再指名を確定しました", "info");
     }
   }, [
-    s.renominationDuplicates, s.tableState, addLog,
+    s.renominationDuplicates, s.tableState, s.totalGetDict, s.renominationInput,
+    s.rookies, s.draftProgress.category, addLog,
     s.setPhase, s.setShowConflictResolve, s.setTotalGetDict,
     s.setRenominationState, s.setDraftProgress,
   ]);
