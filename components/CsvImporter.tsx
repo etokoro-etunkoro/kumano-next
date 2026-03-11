@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import type { Rookie, RookieCategory } from "@/types/rookie";
 import type { BlockSlotsConfig } from "@/types/block-slots";
 import { parseBlockSlotsCsv } from "@/utils/csvParser";
@@ -19,6 +20,12 @@ const CATEGORY_CSV_CONFIG: Array<{
   { category: "temporary", label: "臨時CSV" },
 ];
 
+const SHEET_CATEGORY_MAP: Record<string, RookieCategory> = {
+  "新入生": "freshman",
+  "上回生": "upperclassman",
+  "臨時": "temporary",
+};
+
 export default function CsvImporter({
   onRookiesImport,
   onBlockSlotsImport,
@@ -29,6 +36,67 @@ export default function CsvImporter({
     temporary: null,
   });
   const [blockCount, setBlockCount] = useState<number | null>(null);
+  const [excelResult, setExcelResult] = useState<string | null>(null);
+
+  function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+      const wb = XLSX.read(data, { type: "array" });
+
+      const results: string[] = [];
+
+      // 枠数設定シート
+      if (wb.SheetNames.includes("枠数設定")) {
+        const ws = wb.Sheets["枠数設定"];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const csvLines = rows
+          .slice(1) // ヘッダー行をスキップ
+          .filter((r) => r.length >= 4 && r[0])
+          .map((r) => r.join(","));
+        if (csvLines.length > 0) {
+          const text = csvLines.join("\n");
+          const { config, maxRound, blockCount: count } = parseBlockSlotsCsv(text);
+          setBlockCount(count);
+          onBlockSlotsImport(config, maxRound);
+          results.push(`枠数: ${count}ブロック`);
+        }
+      }
+
+      // 寮生シート
+      for (const [sheetName, category] of Object.entries(SHEET_CATEGORY_MAP)) {
+        if (!wb.SheetNames.includes(sheetName)) continue;
+        const ws = wb.Sheets[sheetName];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const rookies: Rookie[] = [];
+        for (const row of rows.slice(1)) { // ヘッダー行をスキップ
+          const num = Number(row[0]);
+          if (isNaN(num) || num === 0) continue;
+          rookies.push({
+            id: num,
+            name: String(row[1] ?? "").trim(),
+            category,
+            remaining: true,
+          });
+        }
+        if (rookies.length > 0) {
+          setRookieCounts((prev) => ({ ...prev, [category]: rookies.length }));
+          onRookiesImport(rookies);
+          results.push(`${sheetName}: ${rookies.length}名`);
+        }
+      }
+
+      if (results.length > 0) {
+        setExcelResult(results.join(" / "));
+      } else {
+        setExcelResult("対応するシートが見つかりませんでした");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
 
   function handleRookieCsv(category: RookieCategory, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -73,6 +141,28 @@ export default function CsvImporter({
 
   return (
     <div className="csv-importer">
+      <div className="excel-section">
+        <div className="excel-header">Excelで一括インポート</div>
+        <div className="csv-row">
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelImport}
+          />
+          {excelResult && (
+            <span className="csv-result">{excelResult}</span>
+          )}
+        </div>
+        <div className="excel-meta">
+          <a href="/template/kumano_draft_template.xlsx" download className="template-link">
+            テンプレートをダウンロード
+          </a>
+          <span className="excel-note">シート名: 枠数設定 / 新入生 / 上回生 / 臨時</span>
+        </div>
+      </div>
+
+      <hr className="section-divider" />
+
       <details className="csv-help">
         <summary>CSVフォーマットについて</summary>
         <div className="csv-help-content">
@@ -180,6 +270,36 @@ export default function CsvImporter({
         }
         input[type='file'] {
           font-size: 13px;
+        }
+        .excel-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .excel-header {
+          font-size: 14px;
+          font-weight: 600;
+        }
+        .excel-meta {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 12px;
+        }
+        .template-link {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        .template-link:hover {
+          color: #1d4ed8;
+        }
+        .excel-note {
+          color: #6b7280;
+        }
+        .section-divider {
+          border: none;
+          border-top: 1px solid #e5e7eb;
+          margin: 4px 0;
         }
       `}</style>
     </div>

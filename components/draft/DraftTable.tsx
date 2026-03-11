@@ -33,7 +33,7 @@ export default function DraftTable({
       <tbody>
         {tableState.map((row) => (
           <tr key={row.block}>
-            <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{row.block}</td>
+            <td style={{ fontWeight: 600, whiteSpace: "nowrap", fontSize: 28 }}>{row.block}</td>
             {row.cells.map((cell, ci) => {
               const v = cell.value.trim();
               const dupColor = v ? duplicateColorMap[v] : undefined;
@@ -59,19 +59,19 @@ export default function DraftTable({
                         onKeyDown={(e) => handleCellKeyDown(e, row.block, ci)}
                       />
                       {warning && !dupColor && (
-                        <div style={{ fontSize: 10, color: '#ef4444', marginTop: 1 }}>{warning}</div>
+                        <div style={{ fontSize: 18, color: '#ef4444', marginTop: 2 }}>{warning}</div>
                       )}
                       {(() => {
                         const name = getRookieName(cell.value.trim());
                         return name ? (
-                          <div style={{ fontSize: 11, color: "#666", marginTop: 1 }}>
+                          <div style={{ fontSize: 20, color: "#666", marginTop: 2 }}>
                             {name}
                           </div>
                         ) : null;
                       })()}
                     </div>
                   ) : isEditable && phase === "confirmed" ? (
-                    <span>
+                    <span style={{ fontSize: 32 }}>
                       {cell.value.trim()
                         ? `${cell.value.trim()}${(() => {
                             const name = getRookieName(cell.value.trim());
@@ -80,7 +80,7 @@ export default function DraftTable({
                         : ""}
                     </span>
                   ) : isConfirmed ? (
-                    <span>
+                    <span style={{ fontSize: 32 }}>
                       {cell.value.trim()
                         ? `${cell.value.trim()}${(() => {
                             const name = getRookieName(cell.value.trim());
