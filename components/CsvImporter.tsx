@@ -73,6 +73,22 @@ export default function CsvImporter({
 
   return (
     <div className="csv-importer">
+      <details className="csv-help">
+        <summary>CSVフォーマットについて</summary>
+        <div className="csv-help-content">
+          <div className="csv-help-section">
+            <strong>新入寮生CSV（新入生・上回生・臨時 共通）</strong>
+            <p>1行に1人、ヘッダー行不要。<code>番号,名前</code> の形式。</p>
+            <pre>1,山田太郎{"\n"}2,佐藤花子{"\n"}3,鈴木一郎</pre>
+          </div>
+          <div className="csv-help-section">
+            <strong>枠数設定CSV</strong>
+            <p>1行に1ブロック。<code>ブロック名,合計,ラウンド1枠数,ラウンド2枠数,...</code> の形式。</p>
+            <pre>Aブロック,5,3,2{"\n"}Bブロック,4,2,2</pre>
+          </div>
+        </div>
+      </details>
+
       {CATEGORY_CSV_CONFIG.map(({ category, label }) => (
         <div key={category} className="csv-row">
           <label className="csv-label">{label}</label>
@@ -101,6 +117,46 @@ export default function CsvImporter({
           flex-direction: column;
           gap: 16px;
           padding: 16px 20px;
+        }
+        .csv-help {
+          font-size: 13px;
+          color: #374151;
+        }
+        .csv-help summary {
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 13px;
+          color: #6b7280;
+          user-select: none;
+        }
+        .csv-help-content {
+          margin-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .csv-help-section p {
+          margin: 2px 0 4px;
+          font-size: 12px;
+          color: #6b7280;
+        }
+        .csv-help-section strong {
+          font-size: 12px;
+        }
+        .csv-help-section pre {
+          margin: 0;
+          padding: 6px 10px;
+          background: #f3f4f6;
+          border-radius: 4px;
+          font-size: 12px;
+          line-height: 1.5;
+          overflow-x: auto;
+        }
+        .csv-help-section code {
+          background: #f3f4f6;
+          padding: 1px 4px;
+          border-radius: 3px;
+          font-size: 12px;
         }
         .csv-row {
           display: flex;

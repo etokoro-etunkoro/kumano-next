@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: kumano-next-frontend
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_BASE
+        fromService:
+          type: web
+          name: kumano-next-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: BACKEND_INTERNAL_URL
+        fromService:
+          type: web
+          name: kumano-next-backend
+          envVarKey: RENDER_INTERNAL_URL
+  - type: web
+    name: kumano-next-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app.server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"

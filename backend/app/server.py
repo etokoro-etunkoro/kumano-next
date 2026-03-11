@@ -9,6 +9,24 @@ from draft_logic import process_draft
 
 app = Bottle()
 
+
+def _confirmed_lookup():
+    """total_get_dict から {str(番号): ブロック名} の逆引き辞書を生成する。"""
+    lookup = {}
+    for block, nums in state["total_get_dict"].items():
+        for n in nums:
+            lookup[str(n)] = block
+    return lookup
+
+
+def _confirmed_number_set():
+    """total_get_dict に含まれる全確定番号を文字列setで返す。"""
+    nums = set()
+    for block_nums in state["total_get_dict"].values():
+        for n in block_nums:
+            nums.add(str(n))
+    return nums
+
 # ---- 設定ファイルパス ----
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "config")
 
@@ -29,7 +47,7 @@ state = {
 # ---- CORS ----
 @app.hook("after_request")
 def enable_cors():
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Origin"] = os.environ.get("CORS_ORIGIN", "*")
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
 
@@ -55,10 +73,31 @@ def submit():
     round_data = data.get("round_data", {})
     winners_map = data.get("winners", {})
 
+    # ---- 確定済み番号の再指名チェック ----
+    lookup = _confirmed_lookup()
+    violations = []
+    for block, nums in round_data.items():
+        for n in nums:
+            key = str(n)
+            if key in lookup:
+                violations.append({
+                    "number": n,
+                    "submitted_by": block,
+                    "confirmed_by": lookup[key],
+                })
+    if violations:
+        response.status = 400
+        response.content_type = "application/json"
+        return json.dumps({
+            "error": "確定済み番号が指名されています",
+            "violations": violations,
+        })
+
     state["round_data"] = round_data
     state["winners_map"] = winners_map
 
-    result = process_draft(round_data, winners_map)
+    confirmed = _confirmed_number_set()
+    result = process_draft(round_data, winners_map, confirmed_numbers=confirmed)
 
     state["get_dict"] = result["get_dict"]
     state["conflicts"] = result["conflicts"]
@@ -91,7 +130,8 @@ def resolve_conflict():
     state["winners_map"][val] = winner
 
     # 再計算
-    result = process_draft(state["round_data"], state["winners_map"])
+    confirmed = _confirmed_number_set()
+    result = process_draft(state["round_data"], state["winners_map"], confirmed_numbers=confirmed)
     state["get_dict"] = result["get_dict"]
     state["conflicts"] = result["conflicts"]
     state["losers"] = result["losers"]
@@ -174,4 +214,5 @@ def get_config():
 
 
 if __name__ == "__main__":
-    run(app, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    run(app, host="0.0.0.0", port=port)
