@@ -1,11 +1,12 @@
 """Draft logic — process_draft で指名データを処理し、配属結果・競合・敗者を返す。"""
 
 
-def process_draft(round_data, winners_map):
+def process_draft(round_data, winners_map, confirmed_numbers=None):
     """
     Args:
         round_data: { block_name: [指名番号, ...], ... }
         winners_map: { "番号": "勝者ブロック名", ... }  競合解決済みの勝者マップ
+        confirmed_numbers: set | None  過去ラウンドで確定済みの番号（文字列set）
 
     Returns:
         {
@@ -14,12 +15,19 @@ def process_draft(round_data, winners_map):
             "losers":     { block_name: 負け回数, ... },
         }
     """
+    confirmed = set(str(n) for n in confirmed_numbers) if confirmed_numbers else set()
+
     block_names = list(round_data.keys())
     get_dict = {name: [] for name in block_names}
     losers = {}
 
     shimei_dict = {name: round_data.get(name, []) for name in block_names}
     shimei_sets = {name: set(lst) for name, lst in shimei_dict.items()}
+
+    # 確定済み番号を除外（防御的フィルタリング）
+    if confirmed:
+        for name in block_names:
+            shimei_sets[name] = {v for v in shimei_sets[name] if str(v) not in confirmed}
 
     # ---- 競合なし（単独指名）の番号を先に配属 ----
     for name in block_names:

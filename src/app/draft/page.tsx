@@ -2,7 +2,7 @@ import DraftBoard from "@/components/draft/DraftBoard";
 
 
 async function fetchInitial() {
-const url = process.env.BACKEND_INTERNAL_URL + "/state";
+const url = (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000") + "/state";
 try {
 const res = await fetch(url!, { cache: "no-store" });
 if (!res.ok) throw new Error("failed initial fetch");

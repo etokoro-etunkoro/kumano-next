@@ -284,20 +284,38 @@ export function useDraftActions(s: DraftState) {
 
       s.setTableState((prev) =>
         prev.map((row) => {
-          if (!losers.has(row.block)) return row;
           return {
             ...row,
             cells: row.cells.map((cell) => {
-              const isLostValue = conflicts.some((c) => {
+              const v = cell.value.trim();
+              if (!v) return cell;
+
+              // じゃんけん勝者のセルを confirmed に変更
+              const isWinnerValue = conflicts.some((c) => {
                 const winner = winnersMap[c.value];
-                return (
-                  winner &&
-                  winner !== row.block &&
-                  c.blocks.includes(row.block) &&
-                  cell.value.trim() === c.value
-                );
+                return winner === row.block && v === c.value;
               });
-              return isLostValue ? { ...cell, value: "" } : cell;
+              if (isWinnerValue) {
+                return { ...cell, status: "confirmed" as const };
+              }
+
+              // 敗者のセルをクリア
+              if (losers.has(row.block)) {
+                const isLostValue = conflicts.some((c) => {
+                  const winner = winnersMap[c.value];
+                  return (
+                    winner &&
+                    winner !== row.block &&
+                    c.blocks.includes(row.block) &&
+                    v === c.value
+                  );
+                });
+                if (isLostValue) {
+                  return { ...cell, value: "" };
+                }
+              }
+
+              return cell;
             }),
           };
         })

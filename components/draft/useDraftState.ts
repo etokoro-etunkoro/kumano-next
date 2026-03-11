@@ -51,11 +51,16 @@ export function useDraftState() {
   // ═══════════ useMemo群 ═══════════
 
   const conflictInfo = useMemo(() => {
+    const allConfirmedNums = new Set<string>();
+    for (const nums of Object.values(totalGetDict)) {
+      for (const n of nums) allConfirmedNums.add(String(n).trim());
+    }
     const valueToBlocks: Record<string, string[]> = {};
     for (const row of tableState) {
       for (const cell of row.cells) {
         const v = cell.value.trim();
         if (!v || cell.status === "confirmed") continue;
+        if (allConfirmedNums.has(v)) continue;
         if (!valueToBlocks[v]) valueToBlocks[v] = [];
         if (!valueToBlocks[v].includes(row.block)) {
           valueToBlocks[v].push(row.block);
@@ -65,7 +70,7 @@ export function useDraftState() {
     return Object.entries(valueToBlocks)
       .filter(([, blocks]) => blocks.length > 1)
       .map(([value, blocks]) => ({ value, blocks }));
-  }, [tableState]);
+  }, [tableState, totalGetDict]);
 
   const duplicateColorMap = useMemo(() => {
     const map: Record<string, string> = {};
