@@ -225,6 +225,9 @@ export default function CsvImporter({
           <a href="/template/kumano_draft_template.xlsx" download className="template-link">
             テンプレートをダウンロード
           </a>
+          <a href="/template/ultra_next.xlsx" download className="template-link">
+            テンプレートその2（実データ例）
+          </a>
           <span className="excel-note">シート名: 新入生枠数設定 / 上回生枠数設定 / 臨キャパ枠数設定 / 新入生一覧 / 上回生一覧 / 臨キャパ一覧</span>
         </div>
       </div>
