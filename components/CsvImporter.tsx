@@ -20,10 +20,20 @@ const CATEGORY_CSV_CONFIG: Array<{
   { category: "temporary", label: "臨時CSV" },
 ];
 
-const SHEET_CATEGORY_MAP: Record<string, RookieCategory> = {
+const ROOKIE_SHEET_MAP: Record<string, RookieCategory> = {
+  "新入生一覧": "freshman",
+  "上回生一覧": "upperclassman",
+  "臨キャパ一覧": "temporary",
+  // Legacy sheet names
   "新入生": "freshman",
   "上回生": "upperclassman",
   "臨時": "temporary",
+};
+
+const SLOTS_SHEET_MAP: Record<string, RookieCategory> = {
+  "新入生枠数設定": "freshman",
+  "上回生枠数設定": "upperclassman",
+  "臨キャパ枠数設定": "temporary",
 };
 
 export default function CsvImporter({
@@ -49,12 +59,53 @@ export default function CsvImporter({
 
       const results: string[] = [];
 
-      // 枠数設定シート
-      if (wb.SheetNames.includes("枠数設定")) {
+      // ── 枠数設定シート（カテゴリ別3枚 or レガシー1枚） ──
+      // 巡目別配列: perCategorySlots["A1"]["freshman"] = [2, 2]
+      const perCategorySlots: Record<string, Record<RookieCategory, number[]>> = {};
+      let slotsFound = false;
+
+      // カテゴリ別枠数設定シート（4列: ブロック名,合計,第1巡枠数,第2巡枠数）
+      for (const [sheetName, category] of Object.entries(SLOTS_SHEET_MAP)) {
+        if (!wb.SheetNames.includes(sheetName)) continue;
+        const ws = wb.Sheets[sheetName];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        let count = 0;
+        for (const row of rows.slice(1)) {
+          const blockName = String(row[0] ?? "").trim();
+          if (!blockName) continue;
+          // 4列形式: row[2]=第1巡, row[3]=第2巡, ...
+          // 2列形式（フォールバック）: row[1]=合計 → [合計]
+          const roundSlots: number[] = [];
+          if (row.length >= 3) {
+            for (let i = 2; i < row.length; i++) {
+              const v = Number(row[i]);
+              if (isNaN(v)) break;
+              roundSlots.push(v);
+            }
+          }
+          if (roundSlots.length === 0) {
+            const total = Number(row[1]);
+            if (isNaN(total)) continue;
+            roundSlots.push(total);
+          }
+          if (!perCategorySlots[blockName]) {
+            perCategorySlots[blockName] = { freshman: [], upperclassman: [], temporary: [] };
+          }
+          perCategorySlots[blockName][category] = roundSlots;
+          count++;
+        }
+        if (count > 0) {
+          slotsFound = true;
+          results.push(`${sheetName}: ${count}ブロック`);
+        }
+      }
+
+      // レガシー形式: 単一「枠数設定」シート
+      if (!slotsFound && wb.SheetNames.includes("枠数設定")) {
         const ws = wb.Sheets["枠数設定"];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
         const csvLines = rows
-          .slice(1) // ヘッダー行をスキップ
+          .slice(1)
           .filter((r) => r.length >= 4 && r[0])
           .map((r) => r.join(","));
         if (csvLines.length > 0) {
@@ -63,16 +114,33 @@ export default function CsvImporter({
           setBlockCount(count);
           onBlockSlotsImport(config, maxRound);
           results.push(`枠数: ${count}ブロック`);
+          slotsFound = true;
         }
       }
 
-      // 寮生シート
-      for (const [sheetName, category] of Object.entries(SHEET_CATEGORY_MAP)) {
+      // カテゴリ別枠数をBlockSlotsConfigに変換して反映
+      if (Object.keys(perCategorySlots).length > 0) {
+        const config: BlockSlotsConfig = {};
+        let maxRound = 0;
+        for (const [blockName, cats] of Object.entries(perCategorySlots)) {
+          config[blockName] = {
+            freshman: cats.freshman,
+            upperclassman: cats.upperclassman,
+            temporary: cats.temporary,
+          };
+          maxRound = Math.max(maxRound, cats.freshman.length, cats.upperclassman.length, cats.temporary.length);
+        }
+        setBlockCount(Object.keys(config).length);
+        onBlockSlotsImport(config, maxRound);
+      }
+
+      // ── 寮生シート（新6シート形式 + レガシー形式） ──
+      for (const [sheetName, category] of Object.entries(ROOKIE_SHEET_MAP)) {
         if (!wb.SheetNames.includes(sheetName)) continue;
         const ws = wb.Sheets[sheetName];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
         const rookies: Rookie[] = [];
-        for (const row of rows.slice(1)) { // ヘッダー行をスキップ
+        for (const row of rows.slice(1)) {
           const num = Number(row[0]);
           if (isNaN(num) || num === 0) continue;
           rookies.push({
@@ -157,7 +225,7 @@ export default function CsvImporter({
           <a href="/template/kumano_draft_template.xlsx" download className="template-link">
             テンプレートをダウンロード
           </a>
-          <span className="excel-note">シート名: 枠数設定 / 新入生 / 上回生 / 臨時</span>
+          <span className="excel-note">シート名: 新入生枠数設定 / 上回生枠数設定 / 臨キャパ枠数設定 / 新入生一覧 / 上回生一覧 / 臨キャパ一覧</span>
         </div>
       </div>
 
