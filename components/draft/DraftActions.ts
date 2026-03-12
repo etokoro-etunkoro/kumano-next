@@ -238,6 +238,31 @@ export function useDraftActions(s: DraftState) {
     apiPost("/submit", { round_data: roundData });
 
     if (s.conflictInfo.length > 0) {
+      // 非競合セルを即座に confirmed にする
+      const conflictValues = new Set(s.conflictInfo.map(c => c.value));
+      const nonConflictGetDict: Record<string, Array<string | number>> = {};
+      for (const row of s.tableState) {
+        for (const cell of row.cells) {
+          if (cell.status !== "editable") continue;
+          const v = cell.value.trim();
+          if (!v || conflictValues.has(v)) continue;
+          if (!nonConflictGetDict[row.block]) nonConflictGetDict[row.block] = [];
+          nonConflictGetDict[row.block].push(v);
+        }
+      }
+      s.setTableState(prev => prev.map(row => ({
+        ...row,
+        cells: row.cells.map(cell => {
+          if (cell.status !== "editable") return cell;
+          const v = cell.value.trim();
+          if (!v || conflictValues.has(v)) return cell;
+          return { ...cell, status: "confirmed" as const };
+        }),
+      })));
+      if (Object.keys(nonConflictGetDict).length > 0) {
+        s.setTotalGetDict(prev => mergeGetDict(prev, nonConflictGetDict));
+      }
+
       s.setPhase("janken");
       s.setShowConflictResolve(true);
       addLog("重複指名を検出。勝者選択へ", "warn");
@@ -256,7 +281,7 @@ export function useDraftActions(s: DraftState) {
   }, [
     s.tableState, s.conflictInfo, exportToJSON, addLog,
     s.rookies, s.draftProgress.category, s.totalGetDict,
-    s.setPhase, s.setShowConflictResolve, s.setTotalGetDict, s.setDraftProgress,
+    s.setPhase, s.setShowConflictResolve, s.setTotalGetDict, s.setDraftProgress, s.setTableState,
   ]);
 
   const handleConflictResolve = useCallback(
@@ -322,6 +347,19 @@ export function useDraftActions(s: DraftState) {
       );
 
       if (losers.size > 0) {
+        // 勝者分を totalGetDict に即時追加（再指名で重複させないため）
+        const winnerGetDict: Record<string, Array<string | number>> = {};
+        conflicts.forEach((conflict) => {
+          const winner = winnersMap[conflict.value];
+          if (winner) {
+            if (!winnerGetDict[winner]) winnerGetDict[winner] = [];
+            winnerGetDict[winner].push(conflict.value);
+          }
+        });
+        if (Object.keys(winnerGetDict).length > 0) {
+          s.setTotalGetDict(prev => mergeGetDict(prev, winnerGetDict));
+        }
+
         const pendingBlocks = Array.from(losers.keys());
         const emptySlots = Array.from(losers.entries()).map(([block, count]) => ({
           block,
@@ -427,6 +465,31 @@ export function useDraftActions(s: DraftState) {
     }
 
     if (s.renominationDuplicates.length > 0) {
+      // 非競合の再指名を即座に confirmed にする
+      const conflictValues = new Set(s.renominationDuplicates.map(c => c.value));
+      const nonConflictGetDict: Record<string, Array<string | number>> = {};
+      for (const row of s.tableState) {
+        for (const cell of row.cells) {
+          if (cell.status !== "editable") continue;
+          const v = cell.value.trim();
+          if (!v || conflictValues.has(v)) continue;
+          if (!nonConflictGetDict[row.block]) nonConflictGetDict[row.block] = [];
+          nonConflictGetDict[row.block].push(v);
+        }
+      }
+      s.setTableState(prev => prev.map(row => ({
+        ...row,
+        cells: row.cells.map(cell => {
+          if (cell.status !== "editable") return cell;
+          const v = cell.value.trim();
+          if (!v || conflictValues.has(v)) return cell;
+          return { ...cell, status: "confirmed" as const };
+        }),
+      })));
+      if (Object.keys(nonConflictGetDict).length > 0) {
+        s.setTotalGetDict(prev => mergeGetDict(prev, nonConflictGetDict));
+      }
+
       s.setPhase("janken");
       s.setShowConflictResolve(true);
       addLog("再指名で重複を検出。勝者選択へ", "warn");
@@ -447,7 +510,7 @@ export function useDraftActions(s: DraftState) {
     s.renominationDuplicates, s.tableState, s.totalGetDict, s.renominationInput,
     s.rookies, s.draftProgress.category, addLog,
     s.setPhase, s.setShowConflictResolve, s.setTotalGetDict,
-    s.setRenominationState, s.setDraftProgress,
+    s.setRenominationState, s.setDraftProgress, s.setTableState,
   ]);
 
   const handlePhaseAction = useCallback(() => {
