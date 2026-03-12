@@ -360,6 +360,33 @@ export function useDraftActions(s: DraftState) {
           s.setTotalGetDict(prev => mergeGetDict(prev, winnerGetDict));
         }
 
+        // 確定セルを番号順に詰めて再配置、敗者空きセルを editable に
+        const fullGetDict = mergeGetDict(s.totalGetDict, winnerGetDict);
+        s.setTableState(prev => prev.map(row => {
+          const vals = fullGetDict[row.block]
+            ? Array.from(new Set(fullGetDict[row.block]))
+                .map(n => String(n)).filter(n => n.trim() !== "")
+                .sort((a, b) => Number(a) - Number(b))
+            : [];
+          const loserEmpty = losers.get(row.block) || 0;
+          let cIdx = 0;
+          let eIdx = 0;
+          return {
+            ...row,
+            cells: row.cells.map(cell => {
+              if (cell.status === "span") return cell;
+              if (cIdx < vals.length) {
+                return { ...cell, value: vals[cIdx++], status: "confirmed" as const };
+              }
+              if (eIdx < loserEmpty) {
+                eIdx++;
+                return { ...cell, value: "", status: "editable" as const };
+              }
+              return cell;
+            }),
+          };
+        }));
+
         const pendingBlocks = Array.from(losers.keys());
         const emptySlots = Array.from(losers.entries()).map(([block, count]) => ({
           block,

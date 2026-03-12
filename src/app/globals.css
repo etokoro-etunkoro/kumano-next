@@ -478,3 +478,9 @@ a:hover { text-decoration: underline; }
   border-color: #ef4444 !important;
   background-color: rgba(239, 68, 68, 0.08);
 }
+
+/* 再入力セル（敗者ブロックの空きセル） */
+.cell-reentry {
+  background-color: #fef3c7;
+  border: 2px dashed #f59e0b !important;
+}

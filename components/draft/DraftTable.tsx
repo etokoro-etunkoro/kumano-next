@@ -41,11 +41,12 @@ export default function DraftTable({
               const isConfirmed = cell.status === "confirmed";
               const isEditable = cell.status === "editable";
               const isSpan = cell.status === "span";
+              const isReentry = isEditable && !v;
 
               return (
                 <td
                   key={ci}
-                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""} ${warning && !dupColor ? "cell-warning" : ""}`}
+                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""} ${warning && !dupColor ? "cell-warning" : ""} ${isReentry ? "cell-reentry" : ""}`}
                   style={dupColor ? { backgroundColor: dupColor } : undefined}
                 >
                   {isEditable && phase !== "confirmed" ? (
