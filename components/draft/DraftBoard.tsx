@@ -107,7 +107,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
                   type="button"
                   onClick={() => a.handleCategoryTabClick(cat)}
                   style={{
-                    padding: "8px 20px",
+                    padding: "12px 24px",
                     border: "1px solid var(--border)",
                     borderRadius: 8,
                     cursor: "pointer",
@@ -117,7 +117,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
                         ? "rgba(120,170,255,0.25)"
                         : "var(--panel2)",
                     color: "var(--text)",
-                    fontSize: 14,
+                    fontSize: 16,
                   }}
                 >
                   {CATEGORY_LABELS[cat]}

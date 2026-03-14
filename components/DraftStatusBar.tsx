@@ -146,9 +146,9 @@ export default function DraftStatusBar({
             rgba(120, 170, 255, 0.18)
           );
           color: var(--text);
-          padding: 10px 20px;
+          padding: 14px 28px;
           border-radius: 12px;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 600;
         }
         .action-btn:hover:not(:disabled) {
@@ -163,9 +163,9 @@ export default function DraftStatusBar({
           border: 1px solid var(--border);
           background: var(--panel2);
           color: var(--text);
-          padding: 10px 16px;
+          padding: 14px 24px;
           border-radius: 12px;
-          font-size: 13px;
+          font-size: 15px;
         }
         .util-btn:hover:not(:disabled) {
           filter: brightness(1.08);

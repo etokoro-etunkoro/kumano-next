@@ -62,7 +62,8 @@ body {
   border: 1px solid var(--border);
   background: var(--panel2);
   color: var(--text);
-  padding: 9px 12px;
+  padding: 14px 24px;
+  font-size: 16px;
   border-radius: 12px;
 }
 .btn:hover { filter: brightness(1.08); }
@@ -135,12 +136,12 @@ a:hover { text-decoration: underline; }
 }
 
 .cell-span {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: #f3f4f6;
+  color: #374151;
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(239, 68, 68, 0.15),
-    rgba(239, 68, 68, 0.15) 4px,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 4px,
     transparent 4px,
     transparent 8px
   );
@@ -482,5 +483,5 @@ a:hover { text-decoration: underline; }
 /* 再入力セル（敗者ブロックの空きセル） */
 .cell-reentry {
   background-color: #fef3c7;
-  border: 2px dashed #f59e0b !important;
+  border: 3px solid #f59e0b !important;
 }
