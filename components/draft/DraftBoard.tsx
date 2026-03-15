@@ -6,7 +6,6 @@ import { isDraftComplete, CATEGORY_ORDER, CATEGORY_LABELS } from "@/types/draft-
 import DraftLog from "../DraftLog";
 import DraftStatusBar from "../DraftStatusBar";
 import CsvImporter from "../CsvImporter";
-import FinalResultModal from "../FinalResultModal";
 import ConflictResolveModal from "../ConflictResolveModal";
 import RemainingRookies from "../RemainingRookies";
 import DraftTable from "./DraftTable";
@@ -78,14 +77,11 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
         progress={s.draftProgress}
         onConfirm={a.handlePhaseAction}
         onNextRound={a.handleNextRound}
-        onNextCategory={a.handleNextCategory}
+        onCsvExport={a.handleCsvExportAndNext}
         hasConflicts={s.conflictInfo.length > 0}
         allConflictsResolved={s.allConflictsResolved}
         disabled={s.phase === "confirmed" || s.tableState.length === 0}
-        onSaveState={a.handleSaveState}
-        onRestoreState={a.handleRestoreState}
-        hasSavedState={s.hasBackup || s.hasLocalStorageBackup}
-        isLocked={isComplete || s.showFinalResult}
+        isLocked={isComplete}
       />
 
       {/* 2カラムレイアウト */}
@@ -140,6 +136,7 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
                 setCellValue={a.setCellValue}
                 handleCellKeyDown={a.handleCellKeyDown}
                 getRookieName={a.getRookieName}
+                renominationActive={s.renominationState !== null}
               />
             </div>
           )}
@@ -193,13 +190,6 @@ export default function DraftBoard({ initial }: { initial: unknown }) {
         />
       )}
 
-      {/* 最終結果モーダル */}
-      <FinalResultModal
-        isOpen={s.showFinalResult}
-        onClose={() => s.setShowFinalResult(false)}
-        totalGetDict={s.combinedGetDict}
-        rookies={s.rookies}
-      />
     </div>
   );
 }

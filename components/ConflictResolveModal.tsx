@@ -34,9 +34,9 @@ export default function ConflictResolveModal({
       <div
         style={{
           background: "white",
-          borderRadius: 12,
-          padding: 24,
-          maxWidth: 500,
+          borderRadius: 16,
+          padding: 32,
+          maxWidth: 700,
           width: "90%",
           maxHeight: "80vh",
           overflowY: "auto",
@@ -44,9 +44,9 @@ export default function ConflictResolveModal({
       >
         <div
           style={{
-            fontSize: 18,
+            fontSize: 26,
             fontWeight: "bold",
-            marginBottom: 16,
+            marginBottom: 20,
           }}
         >
           勝者を選択してください
@@ -56,9 +56,9 @@ export default function ConflictResolveModal({
           <div key={conflict.val}>
             <div
               style={{
-                fontSize: 14,
-                fontWeight: 600,
-                marginBottom: 8,
+                fontSize: 20,
+                fontWeight: 700,
+                marginBottom: 10,
               }}
             >
               No.{conflict.val} の勝者:
@@ -81,10 +81,11 @@ export default function ConflictResolveModal({
                     key={blockName}
                     type="button"
                     style={{
-                      padding: "8px 16px",
-                      borderRadius: 6,
+                      padding: "14px 28px",
+                      borderRadius: 10,
                       cursor: "pointer",
-                      fontSize: 14,
+                      fontSize: 20,
+                      fontWeight: 600,
                       border: "2px solid",
                       background: isSelected ? "#3b82f6" : "#f1f5f9",
                       color: isSelected ? "white" : "#334155",
@@ -120,10 +121,11 @@ export default function ConflictResolveModal({
             type="button"
             disabled={!allDecided}
             style={{
-              padding: "8px 16px",
-              borderRadius: 6,
+              padding: "14px 32px",
+              borderRadius: 10,
               cursor: allDecided ? "pointer" : "not-allowed",
-              fontSize: 14,
+              fontSize: 20,
+              fontWeight: 700,
               border: "none",
               background: allDecided ? "#10b981" : "#9ca3af",
               color: "white",
@@ -135,10 +137,11 @@ export default function ConflictResolveModal({
           <button
             type="button"
             style={{
-              padding: "8px 16px",
-              borderRadius: 6,
+              padding: "14px 32px",
+              borderRadius: 10,
               cursor: "pointer",
-              fontSize: 14,
+              fontSize: 20,
+              fontWeight: 700,
               border: "none",
               background: "#6b7280",
               color: "white",

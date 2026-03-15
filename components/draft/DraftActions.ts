@@ -18,7 +18,7 @@ import {
 } from "@/utils/draftTableUtils";
 import { parseBlockSlotsCsv } from "@/utils/csvParser";
 import type { LogEntry } from "../DraftLog";
-import { mergeGetDict } from "../FinalResultModal";
+import { mergeGetDict } from "@/utils/draftTableUtils";
 import type { DraftBackup } from "@/hooks/useDraftBackup";
 import { apiPost } from "./constants";
 import type { RenominationInput } from "./types";
@@ -360,7 +360,7 @@ export function useDraftActions(s: DraftState) {
           s.setTotalGetDict(prev => mergeGetDict(prev, winnerGetDict));
         }
 
-        // 確定セルを番号順に詰めて再配置、敗者空きセルを editable に
+        // 確定セルを番号順に詰めて再配置、敗者空きセルを editable に、未使用枠を unused に
         const fullGetDict = mergeGetDict(s.totalGetDict, winnerGetDict);
         s.setTableState(prev => prev.map(row => {
           const vals = fullGetDict[row.block]
@@ -382,7 +382,8 @@ export function useDraftActions(s: DraftState) {
                 eIdx++;
                 return { ...cell, value: "", status: "editable" as const };
               }
-              return cell;
+              // 未使用の枠はロック（再入力フェーズでは追加指名不可）
+              return { ...cell, value: "", status: "unused" as const };
             }),
           };
         }));
@@ -551,10 +552,7 @@ export function useDraftActions(s: DraftState) {
   const handleNextRound = useCallback(() => {
     const nextRound = s.draftProgress.round + 1;
     if (nextRound > s.draftProgress.maxRound) {
-      const nextCat = getNextCategory(s.draftProgress.category);
-      if (!nextCat) {
-        s.setShowFinalResult(true);
-      }
+      // 最終ラウンド完了 → CSV出力ボタンが表示される（ここでは何もしない）
       return;
     }
 
@@ -584,19 +582,42 @@ export function useDraftActions(s: DraftState) {
     s.setShowFinalResult, s.setTableState, s.setDraftProgress, s.setPhase, s.setRenominationState,
   ]);
 
-  const handleNextCategory = useCallback(() => {
+  const handleCsvExportAndNext = useCallback(() => {
+    // 現カテゴリのCSVを出力
+    const catLabel = CATEGORY_LABELS[s.draftProgress.category];
+    const nameMap = new Map(
+      s.rookies
+        .filter((r) => r.category === s.draftProgress.category)
+        .map((r) => [r.id, r.name])
+    );
+    const rows: string[] = ["番号,名前,ブロック"];
+    for (const block of Object.keys(s.totalGetDict)) {
+      for (const num of s.totalGetDict[block]) {
+        const name = nameMap.get(Number(num)) || "";
+        rows.push(`${num},${name},${block}`);
+      }
+    }
+    rows.sort((a, b) => {
+      if (a === "番号,名前,ブロック") return -1;
+      if (b === "番号,名前,ブロック") return 1;
+      return Number(a.split(",")[0]) - Number(b.split(",")[0]);
+    });
+    const csv = rows.join("\n");
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `draft_result_${catLabel}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addLog(`${catLabel}のCSVを出力しました`, "info");
+
+    // 次のカテゴリへ遷移
     const nextCat = getNextCategory(s.draftProgress.category);
     if (!nextCat) {
-      s.setShowFinalResult(true);
       addLog("全カテゴリ完了！", "info");
       return;
-    }
-
-    if (Object.keys(s.totalGetDict).length > 0) {
-      s.setAllCategoryResults((prev) => ({
-        ...prev,
-        [s.draftProgress.category]: s.totalGetDict,
-      }));
     }
 
     apiPost("/next_category", { category: nextCat });
@@ -615,9 +636,8 @@ export function useDraftActions(s: DraftState) {
     s.setRenominationState(null);
     addLog(`${CATEGORY_LABELS[nextCat]}ドラフトを開始`, "info");
   }, [
-    s.draftProgress, s.activeBlockSlots, buildTable, addLog, s.totalGetDict,
-    s.setShowFinalResult, s.setAllCategoryResults, s.setTableState,
-    s.setDraftProgress, s.setPhase, s.setTotalGetDict, s.setRenominationState,
+    s.draftProgress, s.activeBlockSlots, s.rookies, s.totalGetDict, buildTable, addLog,
+    s.setTableState, s.setDraftProgress, s.setPhase, s.setTotalGetDict, s.setRenominationState,
   ]);
 
   const handleSaveState = useCallback(() => {
@@ -794,7 +814,7 @@ export function useDraftActions(s: DraftState) {
     addLog, setCellValue, buildTable, handleRookiesImport, handleBlockSlotsImport,
     exportToJSON, getRookieName, handleCategoryTabClick, handleConfirmNominations,
     handleConflictResolve, handleConflictResolveClose, handleConfirmRenomination,
-    handlePhaseAction, handleNextRound, handleNextCategory, handleSaveState,
+    handlePhaseAction, handleNextRound, handleCsvExportAndNext, handleSaveState,
     handleRestoreState, handleCellKeyDown, handleQuickSet,
   };
 }

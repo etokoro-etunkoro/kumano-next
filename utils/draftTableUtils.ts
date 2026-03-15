@@ -4,7 +4,7 @@ export type Cell = {
   cycle: "1st" | "2nd";
   index: number;
   value: string;
-  status: "editable" | "span" | "confirmed";
+  status: "editable" | "span" | "confirmed" | "unused";
 };
 
 export type Row = {
@@ -131,4 +131,26 @@ export function applyRoundSlots(
 
     return { ...row, cells: newCells };
   });
+}
+
+// ── mergeGetDict ──
+
+/**
+ * 2つのgetDictをマージする。重複番号はスキップ。
+ */
+export function mergeGetDict(
+  prev: Record<string, Array<string | number>>,
+  current: Record<string, Array<string | number>>
+): Record<string, Array<string | number>> {
+  const result = { ...prev };
+  for (const block in current) {
+    if (!(block in result)) result[block] = [];
+    for (const num of current[block]) {
+      if (!result[block].includes(num)) {
+        result[block].push(num);
+        result[block].sort((a, b) => Number(a) - Number(b));
+      }
+    }
+  }
+  return result;
 }

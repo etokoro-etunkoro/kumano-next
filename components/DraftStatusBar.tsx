@@ -11,13 +11,10 @@ type DraftStatusBarProps = {
   progress: DraftProgress;
   onConfirm: () => void;
   onNextRound: () => void;
-  onNextCategory: () => void;
+  onCsvExport: () => void;
   hasConflicts: boolean;
   allConflictsResolved: boolean;
   disabled: boolean;
-  onSaveState: () => void;
-  onRestoreState: () => void;
-  hasSavedState: boolean;
   isLocked: boolean;
 };
 
@@ -25,20 +22,33 @@ export default function DraftStatusBar({
   progress,
   onConfirm,
   onNextRound,
-  onNextCategory,
+  onCsvExport,
   hasConflicts,
   allConflictsResolved,
   disabled,
-  onSaveState,
-  onRestoreState,
-  hasSavedState,
   isLocked,
 }: DraftStatusBarProps) {
   const { category, round, maxRound, phase } = progress;
 
+  const actionStyle: React.CSSProperties = {
+    margin: 0,
+    padding: "18px 40px",
+    background: "#fbbf24",
+    border: "2px solid #d97706",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontSize: 22,
+    fontWeight: 700,
+  };
+  const disabledStyle: React.CSSProperties = {
+    ...actionStyle,
+    opacity: 0.45,
+    cursor: "not-allowed",
+  };
+
   const renderActionButton = () => {
     if (isLocked) {
-      return <span className="status-done">ドラフト完了</span>;
+      return <span style={{ fontSize: 22, fontWeight: 700, color: "#fbbf24" }}>ドラフト完了</span>;
     }
 
     switch (phase) {
@@ -46,7 +56,7 @@ export default function DraftStatusBar({
         return (
           <button
             type="button"
-            className="action-btn"
+            style={disabled ? disabledStyle : actionStyle}
             disabled={disabled}
             onClick={onConfirm}
           >
@@ -57,7 +67,7 @@ export default function DraftStatusBar({
         return (
           <button
             type="button"
-            className="action-btn"
+            style={!allConflictsResolved ? disabledStyle : actionStyle}
             disabled={!allConflictsResolved}
             onClick={onConfirm}
           >
@@ -69,7 +79,7 @@ export default function DraftStatusBar({
           return (
             <button
               type="button"
-              className="action-btn"
+              style={actionStyle}
               onClick={onNextRound}
             >
               次のラウンドへ
@@ -79,10 +89,10 @@ export default function DraftStatusBar({
         return (
           <button
             type="button"
-            className="action-btn"
-            onClick={onNextCategory}
+            style={actionStyle}
+            onClick={onCsvExport}
           >
-            次のカテゴリへ
+            CSV出力
           </button>
         );
       default:
@@ -99,18 +109,6 @@ export default function DraftStatusBar({
 
       <div className="actions">
         {renderActionButton()}
-
-        <button type="button" className="util-btn" onClick={onSaveState}>
-          💾 状態保存
-        </button>
-        <button
-          type="button"
-          className="util-btn"
-          disabled={!hasSavedState}
-          onClick={onRestoreState}
-        >
-          ↩ やり直し
-        </button>
       </div>
 
       <style jsx>{`
@@ -128,56 +126,14 @@ export default function DraftStatusBar({
           margin-bottom: 16px;
         }
         .status-text {
-          font-size: 15px;
-          font-weight: 600;
+          font-size: 20px;
+          font-weight: 700;
         }
         .actions {
           display: flex;
           gap: 8px;
           align-items: center;
           flex-wrap: wrap;
-        }
-        .action-btn {
-          cursor: pointer;
-          border: 1px solid rgba(120, 170, 255, 0.35);
-          background: linear-gradient(
-            180deg,
-            rgba(120, 170, 255, 0.35),
-            rgba(120, 170, 255, 0.18)
-          );
-          color: var(--text);
-          padding: 14px 28px;
-          border-radius: 12px;
-          font-size: 16px;
-          font-weight: 600;
-        }
-        .action-btn:hover:not(:disabled) {
-          filter: brightness(1.08);
-        }
-        .action-btn:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-        .util-btn {
-          cursor: pointer;
-          border: 1px solid var(--border);
-          background: var(--panel2);
-          color: var(--text);
-          padding: 14px 24px;
-          border-radius: 12px;
-          font-size: 15px;
-        }
-        .util-btn:hover:not(:disabled) {
-          filter: brightness(1.08);
-        }
-        .util-btn:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-        .status-done {
-          font-size: 14px;
-          font-weight: 600;
-          color: #fbbf24;
         }
       `}</style>
     </div>

@@ -14,11 +14,12 @@ type DraftTableProps = {
   setCellValue: (block: string, cellIndex: number, value: string) => void;
   handleCellKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, block: string, cellIndex: number) => void;
   getRookieName: (num: string) => string | null;
+  renominationActive: boolean;
 };
 
 export default function DraftTable({
   tableState, maxCells, phase, duplicateColorMap, cellWarnings, tableRef,
-  setCellValue, handleCellKeyDown, getRookieName,
+  setCellValue, handleCellKeyDown, getRookieName, renominationActive,
 }: DraftTableProps) {
   return (
     <table className="slots-table" ref={tableRef}>
@@ -41,12 +42,13 @@ export default function DraftTable({
               const isConfirmed = cell.status === "confirmed";
               const isEditable = cell.status === "editable";
               const isSpan = cell.status === "span";
-              const isReentry = isEditable && !v;
+              const isUnused = cell.status === "unused";
+              const isReentry = renominationActive && isEditable && !v;
 
               return (
                 <td
                   key={ci}
-                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${dupColor ? "cell-duplicate" : ""} ${warning && !dupColor ? "cell-warning" : ""} ${isReentry ? "cell-reentry" : ""}`}
+                  className={`${isConfirmed ? "cell-black" : isEditable ? "cell-red" : ""} ${isSpan ? "cell-span" : ""} ${isUnused ? "cell-unused" : ""} ${dupColor ? "cell-duplicate" : ""} ${warning && !dupColor ? "cell-warning" : ""} ${isReentry ? "cell-reentry" : ""}`}
                   style={dupColor ? { backgroundColor: dupColor } : undefined}
                 >
                   {isEditable && phase !== "confirmed" ? (

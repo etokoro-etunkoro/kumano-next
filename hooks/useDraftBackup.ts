@@ -11,7 +11,7 @@ export type DraftBackup = {
       cycle: "1st" | "2nd";
       index: number;
       value: string;
-      status: "editable" | "span" | "confirmed";
+      status: "editable" | "span" | "confirmed" | "unused";
     }>;
   }>;
   totalGetDict: Record<string, Array<string | number>>;
